@@ -1,0 +1,667 @@
+<html>
+
+<head>
+    <title>Path Drawing Tool</title>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.5/lib/p5.js" type="text/javascript"></script>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        let currentPath = [];
+        let allPaths = [];
+        let singlePoints = [];
+        let limitLenght = 2000;
+        let maxLenght = 250;
+        let mouseStart = false;
+        let mouseEnd = false;
+        let dotLimit = 40;
+        let pathLimit = 30;
+        let isCanvasTouch = false;
+        let animationPhase = 0;
+        let animationSpeed = 3; // 每帧移动3像素
+        let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        let maxScaleFactor = isMobile ? 10 : 3; // 手机10倍，电脑3倍
+        let snapDistanceFactor = isMobile ? 5 : 2; // 手机5像素，电脑2像素
+        function setup() {
+            const canvas = createCanvas(500, 500);
+            textSize(10);
+            textAlign(LEFT, CENTER);
+            noFill();
+            strokeWeight(1);
+            canvas.elt.addEventListener('touchmove', function (e) {
+                e.preventDefault();
+            }, { passive: false });
+            document.addEventListener("touchmove", preventBehavior, {
+                passive: false
+            });
+        }
+        function preventBehavior(e) {
+            e.preventDefault();
+        }
+        // --- Debounced postMessage to parent for path updates ---
+        let lastPostMessageTimer = null;
+        function postPathUpdateDebounced() {
+            if (lastPostMessageTimer) {
+                clearTimeout(lastPostMessageTimer);
+            }
+            lastPostMessageTimer = setTimeout(postPathUpdateToParent, 100);
+        }
+        // Compose and post message to parent window (with origin check)
+        function postPathUpdateToParent() {
+            // Compose data in a compact format
+            const data = {
+                type: 'update',
+                payload: {
+                    allPaths: allPaths.map(path => path.map(pt => ({ x: pt.x, y: pt.y }))),
+                    singlePoints: singlePoints.map(pt => ({ x: pt.x, y: pt.y }))
+                }
+            };
+            // Send only if in iframe
+            if (window.parent && window.parent !== window) {
+                // Optionally restrict to a whitelist of parent origins:
+                // e.g. const allowedOrigins = ['https://polypaths.up.railway.app'];
+                //      if (allowedOrigins.includes(window.parent.origin)) { ... }
+                window.parent.postMessage(data, '*');
+            }
+        }
+
+        // Listen for reset command from parent (with type and origin check)
+        window.addEventListener('message', function (event) {
+            // Optionally: restrict allowed origins for security
+            // const allowedOrigins = ['https://polypaths.up.railway.app', 'http://localhost:3000'];
+            // if (!allowedOrigins.includes(event.origin)) return;
+            // Only accept messages with type 'reset'
+            if (event && event.data && typeof event.data === 'object' && event.data.type === 'reset') {
+                clearCanvas();
+            }
+            if (event && event.data && typeof event.data === 'object' && event.data.type === 'copyToClipboard') {
+                let copied = '';
+                try {
+                    const linkElem = document.getElementById('generated-link');
+                    copied = window.lastGeneratedURL || (linkElem ? linkElem.innerText : '');
+                } catch (e) { }
+                copyToClipboard();
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'copied', payload: copied }, '*');
+                }
+            }
+            if (event && event.data && typeof event.data === 'object' && event.data.type === 'generateURL') {
+                let result = generateURLFromData();
+                let url = result && result.url ? result.url : '';
+                const fixedUrl = url
+                    .replace(/%3D/gi, '=')
+                    .replace(/%2F/gi, '/')
+                    .replace(/%2B/gi, '+');
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'generatedURL', payload: fixedUrl }, '*');
+                }
+            }
+        });
+
+        function draw() {
+            background(255);
+            strokeWeight(1);
+
+            // Draw grid
+            push();
+            stroke(200);
+            strokeWeight(0.5);
+            const gridSize = 500 / 15; // 15x15 grid
+            for (let x = gridSize; x < width; x += gridSize) {
+                line(x, 0, x, height);
+            }
+            for (let y = gridSize; y < height; y += gridSize) {
+                line(0, y, width, y);
+            }
+            pop();
+
+            for (let i = 0; i < allPaths.length; i++) {
+                drawPathWithLabels(allPaths[i], i);
+            }
+
+            // Draw stats box
+            push();
+            fill(0, 180); // 黑色，20%透明
+            stroke(0, 51);
+            rect(10, 10, 150, 50, 5); // 圆角矩形
+
+            fill(255);
+            noStroke();
+            textAlign(LEFT, TOP);
+            textSize(12);
+            text(`Paths: ${allPaths.length}`, 20, 20);
+            text(`Points: ${singlePoints.length}`, 20, 40);
+            textSize(10); // 恢复默认字体大小
+            pop();
+
+            for (let i = 0; i < singlePoints.length; i++) {
+                let pt = singlePoints[i];
+                noFill();
+                stroke(50)
+                ellipse(pt.x, pt.y, 12, 12);
+
+                fill(0);
+                ellipse(pt.x, pt.y, 5, 5);
+                noStroke();
+                fill(50);
+                text(`Dot ${i + 1}`, pt.x + 8, pt.y);
+                stroke(0);
+            }
+            if (mouseIsPressed) {
+                currentPath.push(createVector(mouseX, mouseY));
+                drawRawPoints(currentPath);
+                postPathUpdateDebounced();
+            } else {
+                // Still debounce update in case of changes not from mouse
+                postPathUpdateDebounced();
+            }
+        }
+        function drawRawPoints(path) {
+            if (path.length === 0) return;
+
+            // 计算总距离
+            let totalDist = dist(path[0].x, path[0].y, mouseX, mouseY);
+            if (totalDist > 0) {
+                animationPhase = (animationPhase + animationSpeed / totalDist) % 1;
+            }
+
+            // 检查终点是否接近其他点
+            let isNearOther = false;
+            let snapDistance = snapDistanceFactor; // 使用设备相应的检测距离
+            let maxScale = maxScaleFactor; // 使用设备相应的放大倍数
+
+            // 检查所有独立点
+            for (let pt of singlePoints) {
+                let d = dist(mouseX, mouseY, pt.x, pt.y);
+                if (d < snapDistance) {
+                    isNearOther = true;
+                    break;
+                }
+            }
+
+            // 检查所有路径的端点
+            if (!isNearOther) {
+                for (let p of allPaths) {
+                    if (p.length > 0) {
+                        // 检查路径的起点
+                        let d1 = dist(mouseX, mouseY, p[0].x, p[0].y);
+                        // 检查路径的终点
+                        let d2 = dist(mouseX, mouseY, p[p.length - 1].x, p[p.length - 1].y);
+                        if (d1 < snapDistance || d2 < snapDistance) {
+                            isNearOther = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            noFill();
+            stroke(50);
+            strokeWeight(1);
+
+            // 计算当前动画点的位置
+            let currentX = lerp(path[0].x, mouseX, animationPhase);
+            let currentY = lerp(path[0].y, mouseY, animationPhase);
+
+            // 绘制起点和终点的圆圈
+            ellipse(path[0].x, path[0].y, 12, 12);
+
+            // 根据是否接近其他点来决定终点圆圈的大小
+            let circleSize = isNearOther ? 12 * maxScale : 12;
+            ellipse(mouseX, mouseY, circleSize, circleSize);
+
+            fill(50);
+            noStroke();
+            ellipse(path[0].x, path[0].y, 5, 5);
+            let innerCircleSize = isNearOther ? 5 * maxScale : 5;
+            ellipse(mouseX, mouseY, innerCircleSize, innerCircleSize);
+
+            if (mouseIsPressed) {
+                stroke(150);
+                noFill();
+                strokeWeight(3);
+                beginShape(POINTS);
+                let d = dist(path[0].x, path[0].y, mouseX, mouseY);
+                let numDots = d / 10;
+                for (let i = 0; i <= numDots; i++) {
+                    let lerpFactor = (i / numDots) + 0.001;
+                    let x = lerp(path[0].x, mouseX, lerpFactor);
+                    let y = lerp(path[0].y, mouseY, lerpFactor);
+                    vertex(x, y);
+                }
+                endShape();
+
+                push();
+                stroke(50);
+                strokeWeight(1);
+                // ellipse(currentX, currentY, 8, 8);
+
+                let angle = atan2(mouseY - path[0].y, mouseX - path[0].x);
+                translate(currentX, currentY);
+                rotate(angle);
+
+                fill(50);
+                noStroke();
+                let arrowSize = 8;
+                triangle(0, 0, -arrowSize, -arrowSize / 2, -arrowSize, arrowSize / 2);
+                pop();
+            }
+        }
+        function drawPathWithLabels(path, pathIndex) {
+            stroke(0);
+            noFill();
+            beginShape();
+            for (let i = 0; i < path.length; i++) {
+                let pt = path[i];
+                vertex(pt.x, pt.y);
+            }
+            endShape();
+
+            // 绘制箭头
+            for (let i = 0; i < path.length - 1; i++) {
+                let pt = path[i];
+                let nextPt = path[i + 1];
+                let angle = atan2(nextPt.y - pt.y, nextPt.x - pt.x);
+                let arrowSize = 8;
+                let midX = (pt.x + nextPt.x) / 2;
+                let midY = (pt.y + nextPt.y) / 2;
+
+                push();
+                translate(midX, midY);
+                rotate(angle);
+                fill(0);
+                noStroke();
+                triangle(0, 0, -arrowSize, -arrowSize / 2, -arrowSize, arrowSize / 2);
+                pop();
+            }
+
+            for (let i = 0; i < path.length; i++) {
+                let pt = path[i];
+                fill(0);
+                ellipse(pt.x, pt.y, 5, 5);
+                noStroke();
+                fill(50, 100, 200);
+                // text(`P${pathIndex + 1}-${i}`, pt.x + 5, pt.y);
+                stroke(0);
+            }
+            let labelPos = path[0];
+            noStroke();
+            fill(50);
+            text(`Path ${pathIndex + 1}`, labelPos.x + 8, labelPos.y - 8);
+            stroke(0);
+        }
+        function mouseReleased() {
+            if (currentPath.length > 1) {
+                let totalLength = calculatePathLength(currentPath);
+                let totalAngle = calculateTotalAngle(currentPath);
+                if (totalLength < 20) {
+                    let pt = currentPath[0].copy();
+                    if (pt.x >= 0 && pt.x <= 500 && pt.y >= 0 && pt.y <= 500) {
+                        singlePoints.push(pt);
+                        if (singlePoints.length > dotLimit) {
+                            singlePoints.shift();
+                        }
+                        // console.log(`添加独立点: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+                    } else {
+                        // console.log(`忽略画布范围外的点: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+                    }
+                } else {
+                    let minPoints = 2;
+                    let dynamicMax = floor(map(totalLength, 20, 500, 4, 12));
+                    let maxPoints = constrain(dynamicMax, minPoints, 12);
+                    let lengthFactor = map(totalLength, 20, 500, 0, 1);
+                    let angleFactor = map(totalAngle, 0, 720, 0, 1);
+                    let blend = lengthFactor * 0.5 + angleFactor * 0.5;
+                    let mappedCount = round(map(blend, 0, 1, minPoints, maxPoints));
+                    let pointCount = constrain(mappedCount, minPoints, maxPoints);
+                    let simplified = resamplePath(currentPath, pointCount);
+                    allPaths.push(simplified);
+                    if (allPaths.length > pathLimit) {
+                        allPaths.shift();
+                    }
+                }
+                postPathUpdateDebounced();
+            }
+            currentPath = [];
+        }
+        function calculatePathLength(path) {
+            let total = 0;
+            for (let i = 1; i < path.length; i++) {
+                total += p5.Vector.dist(path[i], path[i - 1]);
+            }
+            return total;
+        }
+        function calculateTotalAngle(path) {
+            let totalAngle = 0;
+            for (let i = 1; i < path.length - 1; i++) {
+                let v1 = p5.Vector.sub(path[i], path[i - 1]);
+                let v2 = p5.Vector.sub(path[i + 1], path[i]);
+                if (v1.mag() === 0 || v2.mag() === 0) continue; // 忽略無效向量
+                let angle = degrees(v1.angleBetween(v2));
+                if (!isNaN(angle)) {
+                    totalAngle += abs(angle);
+                }
+            }
+            return totalAngle;
+        }
+        function resamplePath(path, count) {
+            let totalLength = 0;
+            let distances = [];
+            for (let i = 1; i < path.length; i++) {
+                let d = p5.Vector.dist(path[i], path[i - 1]);
+                distances.push(d);
+                totalLength += d;
+            }
+            if (isAlmostStraight(path)) {
+                return [path[0].copy(), path[path.length - 1].copy()];
+            }
+            let interval = totalLength / (count - 1);
+            let newPath = [];
+            let targetDist = 0;
+            let accumulated = 0;
+            for (let i = 1; i < path.length; i++) {
+                let segStart = path[i - 1];
+                let segEnd = path[i];
+                let d = distances[i - 1];
+                if (accumulated + d >= targetDist) {
+                    let safeD = d !== 0 ? d : 0.0001;
+                    let t = (targetDist - accumulated) / safeD;
+                    if (isNaN(t)) t = 0;
+                    let newPoint = p5.Vector.lerp(segStart, segEnd, t);
+                    let xx = Number(newPoint.x.toFixed(2));
+                    let yy = Number(newPoint.y.toFixed(2));
+                    newPoint.x = map(xx, 0, 500, 0, 500);
+                    newPoint.y = map(yy, 0, 500, 0, 500);
+                    newPath.push(newPoint);
+                    targetDist += interval;
+                    i--;
+                } else {
+                    accumulated += d;
+                }
+                if (newPath.length === count) break;
+            }
+            if (newPath.length < count) {
+                newPath.push(path[path.length - 1].copy());
+            }
+            return newPath;
+        }
+        function isAlmostStraight(path) {
+            let totalLength = calculatePathLength(path);
+            if (totalLength < limitLenght) return true; // ⭐ 長度短就直接視為直線
+            let totalAngle = calculateTotalAngle(path);
+            return totalAngle < 20 && path.length >= 3;
+        }
+
+        function generateSeed(len = 7) {
+            let seed = '';
+            seed = Math.floor(Math.random() * 99999999 + 1111111);
+            return seed;
+        }
+        function generateURLFromData() {
+            let compressedPaths = allPaths.map(compressPath);
+            let compressedDots = [];
+            if (singlePoints && singlePoints.length > 0) {
+                const validSinglePoints = singlePoints.filter(p =>
+                    p.x >= 0 && p.x <= width && p.y >= 0 && p.y <= height
+                );
+                if (validSinglePoints.length < singlePoints.length) {
+                    // console.log(`过滤掉${singlePoints.length - validSinglePoints.length}个画布范围外的点`);
+                }
+                if (validSinglePoints.length > 0) {
+                    compressedDots = validSinglePoints.map(p => [
+                        Number(p.x.toFixed(1)),
+                        Number(p.y.toFixed(1))
+                    ]);
+                    // console.log(`压缩了${compressedDots.length}个独立点`);
+                } else {
+                    // console.log('没有有效的独立点需要压缩');
+                }
+            } else {
+                // console.log('没有独立点需要压缩');
+            }
+            let data = {
+                p: compressedPaths,
+                d: compressedDots
+            };
+            try {
+                const jsonStr = JSON.stringify(data);
+                const base64Str = btoa(jsonStr);
+                const base64Url = encodeURIComponent(base64Str);
+                const binaryStr = compressToBinary(data);
+                const binaryUrl = encodeURIComponent(binaryStr);
+                let shortestStr = base64Url;
+                let compressionMethod = "base64";
+                if (binaryUrl.length < shortestStr.length) {
+                    shortestStr = binaryUrl;
+                    compressionMethod = "binary";
+                }
+                const seed = generateSeed(7);
+                console.log("seed:", seed);
+                const pixInput = document.querySelector('input[name="pix"]:checked');
+                const selectedPix = pixInput ? pixInput.value : "1.5";
+                const pixPart = selectedPix !== "1.5" ? `&pix_${selectedPix}` : "";
+                let hashPart = "#data_" + shortestStr + "&seed_" + seed + pixPart;
+                // console.log("修正前 hashPart:", hashPart);
+                // 支援未編碼與已編碼的等號
+                hashPart = hashPart.replace(/^#data_AAA(=|%3D)[^&]*&?/, '#');
+                // console.log("修正後 hashPart:", hashPart);
+                let baseUrl = "";
+
+                const completeURL = baseUrl + hashPart;
+                const totalLength = completeURL.length;
+                const charCount = completeURL.split('').length;
+
+                if (totalLength > 2000) {
+                    // console.warn("⚠️ 這個網址太長了！有些瀏覽器可能會爆炸。");
+                    offerAlternatives();
+                } else if (totalLength > 1500) {
+                    console.warn("⚠️ 網址已偏長，請節制你那放飛自我的繪圖習慣。");
+                } else {
+                }
+                const decodedURL = completeURL
+                    .replace(/%3D/gi, '=')
+                    .replace(/%2F/gi, '/')
+                    .replace(/%2B/gi, '+');
+                console.log("🔗 請複製以下網址：\n" + decodedURL);
+                return { url: completeURL, hash: hashPart, baseUrl, seed };
+            } catch (err) {
+                console.error(err);
+                return null;
+            }
+        }
+        function compressPath(path) {
+            if (path.length < 2) return [];
+            let startX = Math.round(path[0].x);
+            let startY = Math.round(path[0].y);
+            let result = [[startX, startY]];
+            // console.log(`压缩路径: 第一点坐标 (${path[0].x}, ${path[0].y}) => (${result[0][0]}, ${result[0][1]})`);
+            if (path.length === 2) {
+                const endX = Math.round(path[1].x);
+                const endY = Math.round(path[1].y);
+                const dx = endX - startX;
+                const dy = endY - startY;
+                if (Math.abs(dx) > 127 || Math.abs(dy) > 127) {
+                    // console.log(`检测到长直线: 起点(${startX}, ${startY})，终点(${endX}, ${endY})，偏移(${dx}, ${dy})`);
+                    const segments = Math.max(
+                        Math.ceil(Math.abs(dx) / 120), // 用120而不是127，留一些余量
+                        Math.ceil(Math.abs(dy) / 120)
+                    );
+                    // console.log(`将直线分为${segments}段`);
+                    for (let i = 1; i <= segments; i++) {
+                        const t = i / segments;
+                        const midX = Math.round(startX + dx * t);
+                        const midY = Math.round(startY + dy * t);
+                        const prevX = i === 1 ? startX : Math.round(startX + dx * ((i - 1) / segments));
+                        const prevY = i === 1 ? startY : Math.round(startY + dy * ((i - 1) / segments));
+                        const segDx = midX - prevX;
+                        const segDy = midY - prevY;
+                        result.push([segDx, segDy]);
+                        // console.log(`分段${i}: 添加点(${midX}, ${midY})，相对偏移(${segDx}, ${segDy})`);
+                    }
+                    return result;
+                }
+            }
+            for (let i = 1; i < path.length; i++) {
+                let dx = Math.round(path[i].x - path[i - 1].x);
+                let dy = Math.round(path[i].y - path[i - 1].y);
+                if (dx < -127) dx = -127;
+                if (dx > 127) dx = 127;
+                if (dy < -127) dy = -127;
+                if (dy > 127) dy = 127;
+                result.push([dx, dy]);
+                // console.log(`第${i + 1}点: 原坐标(${path[i].x}, ${path[i].y}) => 相对偏移(${dx}, ${dy})`);
+            }
+            return result;
+        }
+        function compressToBinary(data) {
+            let result = '';
+            result += String.fromCharCode(data.p.length);
+            // console.log(`编码路径数量: ${data.p.length}`);
+            for (let path of data.p) {
+                result += String.fromCharCode(path.length);
+                // console.log(`编码路径点数量: ${path.length}`);
+                for (let i = 0; i < path.length; i++) {
+                    const point = path[i];
+                    if (i === 0) {
+                        const x = Math.min(255, Math.max(0, Math.round(point[0] / 2)));
+                        const y = Math.min(255, Math.max(0, Math.round(point[1] / 2)));
+                        result += String.fromCharCode(x) + String.fromCharCode(y);
+                        // console.log(`二进制压缩：原始坐标(${point[0]}, ${point[1]}) => 编码值(${x}, ${y}) => 解码后(${x * 2}, ${y * 2})`);
+                    } else {
+                        let dx = point[0];
+                        let dy = point[1];
+                        const dxEncoded = (dx + 128) & 0xFF;
+                        const dyEncoded = (dy + 128) & 0xFF;
+                        result += String.fromCharCode(dxEncoded) + String.fromCharCode(dyEncoded);
+                        // console.log(`相对坐标: (${point[0]}, ${point[1]}) => 编码值(${dxEncoded}, ${dyEncoded}) => 解码后(${dxEncoded - 128}, ${dyEncoded - 128})`);
+                    }
+                }
+            }
+            const dotCount = data.d.length;
+            result += String.fromCharCode(dotCount);
+            // console.log(`编码独立点数量: ${dotCount}`);
+            if (dotCount > 0) {
+                // console.log(`开始编码${dotCount}个独立点`);
+                for (let dot of data.d) {
+                    const x = Math.min(255, Math.max(0, Math.round(dot[0] / 2)));
+                    const y = Math.min(255, Math.max(0, Math.round(dot[1] / 2)));
+                    result += String.fromCharCode(x) + String.fromCharCode(y);
+                    // console.log(`编码独立点: 原坐标(${dot[0]}, ${dot[1]}) => 编码值(${x}, ${y})`);
+                }
+            }
+            console.log(`二进制压缩总长度: ${result.length} 字符`);
+            return btoa(result);
+        }
+        function offerAlternatives() {
+            console.log("🔄 您可以：");
+            console.log("1. 减少路径数量或路径点数量");
+            console.log("2. 尝试使用更简单的绘图");
+            console.log("3. 使用云端存储 (如 Imgur、Gist 等)");
+        }
+        function arrayToBase64(array) {
+            let binary = '';
+            const len = array.length;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(array[i]);
+            }
+            return btoa(binary);
+        }
+        function touchStarted() {
+            if (currentPath.length === 0) {
+                currentPath.push(createVector(mouseX, mouseY));
+            }
+            return true; // 允許事件冒泡，讓下方按鈕可點擊
+        }
+        function touchEnded() {
+            if (currentPath.length > 1) {
+                let totalLength = calculatePathLength(currentPath);
+                let totalAngle = calculateTotalAngle(currentPath);
+                if (totalLength < 20) {
+                    let pt = currentPath[0].copy();
+                    if (pt.x >= 0 && pt.x <= 500 && pt.y >= 0 && pt.y <= 500) {
+                        singlePoints.push(pt);
+                        if (singlePoints.length > 40) {
+                            singlePoints.shift();
+                        }
+                        console.log(`添加獨立點: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+                    } else {
+                        console.log(`忽略畫布範圍外的點: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+                    }
+                } else {
+                    let minPoints = 2;
+                    let dynamicMax = floor(map(totalLength, 20, 500, 4, 12));
+                    let maxPoints = constrain(dynamicMax, minPoints, 12);
+                    let lengthFactor = map(totalLength, 20, 500, 0, 1);
+                    let angleFactor = map(totalAngle, 0, 720, 0, 1);
+                    let blend = lengthFactor * 0.5 + angleFactor * 0.5;
+                    let mappedCount = round(map(blend, 0, 1, minPoints, maxPoints));
+                    let pointCount = constrain(mappedCount, minPoints, maxPoints);
+                    let simplified = resamplePath(currentPath, pointCount);
+                    allPaths.push(simplified);
+                    if (allPaths.length > 30) {
+                        allPaths.shift();
+                    }
+                }
+            }
+            currentPath = [];
+            return true; // 允許事件冒泡，讓下方按鈕可點擊
+        }
+
+        function clearCanvas() {
+            currentPath = [];
+            allPaths = [];
+            singlePoints = [];
+
+            window.lastGeneratedURL = '';
+            postPathUpdateDebounced();
+        }
+        function copyToClipboard() {
+            const linkElem = document.getElementById('generated-link');
+            const linkText = window.lastGeneratedURL || (linkElem ? linkElem.innerText : '');
+            navigator.clipboard.writeText(linkText).then(() => {
+                const copyButton = document.getElementById('copy-button');
+                if (copyButton) {
+                    copyButton.textContent = 'Copied!';
+                    copyButton.classList.add('success');
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy Link';
+                        copyButton.classList.remove('success');
+                    }, 2000);
+                }
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy link. Please copy manually.');
+            });
+        }
+        // 新增一個函式，專門處理開啟產生的網址
+        function openGeneratedUrl(newResult) {
+            if (newResult && newResult.url) {
+                const fixedUrl = newResult.url
+                    .replace(/%3D/gi, '=')
+                    .replace(/%2F/gi, '/')
+                    .replace(/%2B/gi, '+');
+                window.open(fixedUrl, '_blank');
+            }
+        }
+    </script>
+
+
+</body>
+
+</html>

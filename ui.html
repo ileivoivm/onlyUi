@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" type="text/css" href="styleUi.css">
+    <meta charset="utf-8" />
+    <style>
+      html, body, main {
+        margin: 0;
+        padding: 0;
+      }
+      iframe {
+        display: block;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="button-container">
+        <button id="generate-seed" class="button">generate-seed</button>
+        <button id="redraw" class="button">redraw</button>
+        <button id="view-seeds" class="button">view-seeds</button>
+      </div>
+      <iframe src="https://polypathsui.up.railway.app/" width="500" height="500" style="border:none;"></iframe>
+    </main>
+    <script>
+      document.getElementById('redraw').onclick = function() {
+        const iframe = document.querySelector('iframe[src="https://polypathsui.up.railway.app/"]');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'reset' }, '*');
+        }
+      };
+      document.getElementById('generate-seed').onclick = function() {
+        const iframe = document.querySelector('iframe[src="https://polypathsui.up.railway.app/"]');
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'generateURL' }, '*');
+        }
+      };
+      window.addEventListener('message', function(event) {
+        if (event && event.data && event.data.type === 'generatedURL') {
+          console.log( event.data.payload);
+        }
+      });
+    </script>
+  </body>
+</html>

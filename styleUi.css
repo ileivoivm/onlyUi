@@ -1,0 +1,70 @@
+:root {
+  --primary-color: #4A90E2;
+  --hover-color: #357ABD;
+  --background-color: #F5F5F5;
+  --text-color: #FFFFFF;
+  --spacing: 16px;
+  --border-radius: 6px;
+  --button-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --button-shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--background-color);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.button-container {
+  display: flex;
+  gap: var(--spacing);
+  padding: var(--spacing);
+}
+
+.button {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--button-shadow);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.button:hover {
+  background-color: var(--hover-color);
+  box-shadow: var(--button-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.button:active {
+  transform: translateY(0);
+  box-shadow: var(--button-shadow);
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+  .button-container {
+    flex-direction: column;
+    width: 100%;
+    padding: var(--spacing);
+  }
+
+  .button {
+    width: 100%;
+  }
+} 

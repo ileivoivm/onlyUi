@@ -1,0 +1,12 @@
+{
+  "name": "postbotany-ui",
+  "version": "1.0.0",
+  "description": "Static UI for Postbotany",
+  "scripts": {
+    "build": "echo \"No build step required for static files\"",
+    "start": "npx serve -s ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+} 
