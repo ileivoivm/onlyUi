@@ -177,9 +177,15 @@
 
             // 计算总距离
             let totalDist = dist(path[0].x, path[0].y, mouseX, mouseY);
-            if (totalDist > 0) {
+            if (typeof totalDist === 'number' && totalDist > 0 && isFinite(totalDist)) {
                 animationPhase = (animationPhase + animationSpeed / totalDist) % 1;
             }
+            // 防呆：若 animationPhase 為 NaN 或無限大，設為 0
+            if (isNaN(animationPhase) || !isFinite(animationPhase)) animationPhase = 0;
+
+            // 计算当前动画点的位置，lerp 第三參數保證為有效數字
+            let currentX = lerp(path[0].x, mouseX, isNaN(animationPhase) ? 0 : animationPhase);
+            let currentY = lerp(path[0].y, mouseY, isNaN(animationPhase) ? 0 : animationPhase);
 
             // 检查终点是否接近其他点
             let isNearOther = false;
@@ -214,10 +220,6 @@
             noFill();
             stroke(50);
             strokeWeight(1);
-
-            // 计算当前动画点的位置
-            let currentX = lerp(path[0].x, mouseX, animationPhase);
-            let currentY = lerp(path[0].y, mouseY, animationPhase);
 
             // 绘制起点和终点的圆圈
             ellipse(path[0].x, path[0].y, 12, 12);
