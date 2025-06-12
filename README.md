@@ -23,20 +23,6 @@ The `ui.html` file in this directory is a test page for remote interaction with 
 
 ---
 
-**How to Use**
-
-1. Enter this directory and start a local server (e.g., `npx serve` or `npx http-server`).
-2. Open `ui.html` in your browser to see the three buttons and the embedded Path Builder.
-3. Click the buttons to remotely trigger the corresponding Path Builder features.
-
----
-
-**Dependencies & Deployment**
-
-- This directory includes a `package.json` file. Run `npm install` to install dependencies.
-- It is recommended to use `npx serve` for local static server, or deploy to Railway, Vercel, etc.
-
----
 
 **Related Links**
 
