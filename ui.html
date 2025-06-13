@@ -22,24 +22,30 @@
         <button id="redraw" class="button">redraw</button>
         <button id="view-seeds" class="button">view-seeds</button>
       </div>
-      <iframe src="https://polypathsui.up.railway.app/" width="500" height="500" style="border:none;"></iframe>
+      <iframe src="index.html" width="500" height="500" style="border:none;"></iframe>
     </main>
     <script>
       document.getElementById('redraw').onclick = function() {
-        const iframe = document.querySelector('iframe[src="https://polypathsui.up.railway.app/"]');
+        const iframe = document.querySelector('iframe[src="index.html"]');
         if (iframe && iframe.contentWindow) {
           iframe.contentWindow.postMessage({ type: 'reset' }, '*');
         }
       };
       document.getElementById('generate-seed').onclick = function() {
-        const iframe = document.querySelector('iframe[src="https://polypathsui.up.railway.app/"]');
+        const iframe = document.querySelector('iframe[src="index.html"]');
         if (iframe && iframe.contentWindow) {
           iframe.contentWindow.postMessage({ type: 'generateURL' }, '*');
         }
       };
       window.addEventListener('message', function(event) {
+        // console.log('receive message from Polypaths', event);
+        console.log('--------------------------------');
+        console.log('receive message from Polypaths');
         if (event && event.data && event.data.type === 'generatedURL') {
-          console.log( event.data.payload);
+          console.log('generatedURL', event.data.payload);
+        }
+        if (event && event.data && event.data.type === 'newPath') {
+          console.log('newPath:', event.data.payload);
         }
       });
     </script>

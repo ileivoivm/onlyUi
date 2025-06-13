@@ -57,6 +57,7 @@
         // --- Debounced postMessage to parent for path updates ---
         let lastPostMessageTimer = null;
         function postPathUpdateDebounced() {
+            // console.log('mouse action');
             if (lastPostMessageTimer) {
                 clearTimeout(lastPostMessageTimer);
             }
@@ -64,19 +65,20 @@
         }
         // Compose and post message to parent window (with origin check)
         function postPathUpdateToParent() {
-            // Compose data in a compact format
+            // 取得壓縮網址
+            const urlData = generateURLFromData();
+            // decode hash
+            let hash = urlData && urlData.hash ? urlData.hash : '';
+            hash = hash
+              .replace(/%3D/gi, '=')
+              .replace(/%2F/gi, '/')
+              .replace(/%2B/gi, '+');
             const data = {
-                type: 'update',
-                payload: {
-                    allPaths: allPaths.map(path => path.map(pt => ({ x: pt.x, y: pt.y }))),
-                    singlePoints: singlePoints.map(pt => ({ x: pt.x, y: pt.y }))
-                }
+                type: 'newPath',
+                payload: hash
             };
-            // Send only if in iframe
+            console.log('postMessage to Verse', data); // debug log
             if (window.parent && window.parent !== window) {
-                // Optionally restrict to a whitelist of parent origins:
-                // e.g. const allowedOrigins = ['https://polypaths.up.railway.app'];
-                //      if (allowedOrigins.includes(window.parent.origin)) { ... }
                 window.parent.postMessage(data, '*');
             }
         }
@@ -166,10 +168,6 @@
             if (mouseIsPressed) {
                 currentPath.push(createVector(mouseX, mouseY));
                 drawRawPoints(currentPath);
-                postPathUpdateDebounced();
-            } else {
-                // Still debounce update in case of changes not from mouse
-                postPathUpdateDebounced();
             }
         }
         function drawRawPoints(path) {
@@ -319,10 +317,7 @@
                         if (singlePoints.length > dotLimit) {
                             singlePoints.shift();
                         }
-                        // console.log(`添加独立点: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
-                    } else {
-                        // console.log(`忽略画布范围外的点: (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
-                    }
+                    } 
                 } else {
                     let minPoints = 2;
                     let dynamicMax = floor(map(totalLength, 20, 500, 4, 12));
@@ -453,12 +448,12 @@
                     shortestStr = binaryUrl;
                     compressionMethod = "binary";
                 }
-                const seed = generateSeed(7);
-                console.log("seed:", seed);
+                // const seed = generateSeed(7);
+                // console.log("seed:", seed);
                 const pixInput = document.querySelector('input[name="pix"]:checked');
                 const selectedPix = pixInput ? pixInput.value : "1.5";
                 const pixPart = selectedPix !== "1.5" ? `&pix_${selectedPix}` : "";
-                let hashPart = "#data_" + shortestStr + "&seed_" + seed + pixPart;
+                let hashPart = "#data_" + shortestStr + pixPart;
                 // console.log("修正前 hashPart:", hashPart);
                 // 支援未編碼與已編碼的等號
                 hashPart = hashPart.replace(/^#data_AAA(=|%3D)[^&]*&?/, '#');
@@ -480,8 +475,8 @@
                     .replace(/%3D/gi, '=')
                     .replace(/%2F/gi, '/')
                     .replace(/%2B/gi, '+');
-                console.log("🔗 請複製以下網址：\n" + decodedURL);
-                return { url: completeURL, hash: hashPart, baseUrl, seed };
+                // console.log("🔗 請複製以下網址：\n" + decodedURL);
+                return { url: completeURL, hash: hashPart, baseUrl};
             } catch (err) {
                 console.error(err);
                 return null;
@@ -567,7 +562,7 @@
                     // console.log(`编码独立点: 原坐标(${dot[0]}, ${dot[1]}) => 编码值(${x}, ${y})`);
                 }
             }
-            console.log(`二进制压缩总长度: ${result.length} 字符`);
+            // console.log(`二进制压缩总长度: ${result.length} 字符`);
             return btoa(result);
         }
         function offerAlternatives() {
@@ -620,6 +615,7 @@
                         allPaths.shift();
                     }
                 }
+                postPathUpdateDebounced();
             }
             currentPath = [];
             return true; // 允許事件冒泡，讓下方按鈕可點擊
@@ -633,24 +629,7 @@
             window.lastGeneratedURL = '';
             postPathUpdateDebounced();
         }
-        function copyToClipboard() {
-            const linkElem = document.getElementById('generated-link');
-            const linkText = window.lastGeneratedURL || (linkElem ? linkElem.innerText : '');
-            navigator.clipboard.writeText(linkText).then(() => {
-                const copyButton = document.getElementById('copy-button');
-                if (copyButton) {
-                    copyButton.textContent = 'Copied!';
-                    copyButton.classList.add('success');
-                    setTimeout(() => {
-                        copyButton.textContent = 'Copy Link';
-                        copyButton.classList.remove('success');
-                    }, 2000);
-                }
-            }).catch(err => {
-                console.error('Failed to copy text: ', err);
-                alert('Failed to copy link. Please copy manually.');
-            });
-        }
+  
         // 新增一個函式，專門處理開啟產生的網址
         function openGeneratedUrl(newResult) {
             if (newResult && newResult.url) {
