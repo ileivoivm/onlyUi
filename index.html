@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -14,14 +15,38 @@
         body {
             margin: 0;
             padding: 0;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
             background: #fff;
+        }
+
+        /* 创建一个容器来包裹和居中 canvas */
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            /* 保持 500x500 的比例，但允许缩放以适应容器 */
+            aspect-ratio: 1;
+            max-width: min(100vw, 100vh);
+            max-height: min(100vw, 100vh);
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border: none;
         }
     </style>
 </head>
 
 <body>
-
+    <div id="canvas-container"></div>
     <script>
         let currentPath = [];
         let allPaths = [];
@@ -39,14 +64,20 @@
         let maxScaleFactor = isMobile ? 10 : 3; // 手机10倍，电脑3倍
         let snapDistanceFactor = isMobile ? 5 : 2; // 手机5像素，电脑2像素
         function setup() {
+            // 创建 canvas 并将其放入容器中
             const canvas = createCanvas(500, 500);
+            canvas.parent('canvas-container');
+            
             textSize(10);
             textAlign(LEFT, CENTER);
             noFill();
             strokeWeight(1);
-            canvas.elt.addEventListener('touchmove', function (e) {
+            
+            // 添加触摸事件监听
+            canvas.elt.addEventListener('touchmove', function(e) {
                 e.preventDefault();
             }, { passive: false });
+            
             document.addEventListener("touchmove", preventBehavior, {
                 passive: false
             });
@@ -120,7 +151,7 @@
             background(255);
             strokeWeight(1);
 
-            // Draw grid
+   
             push();
             stroke(200);
             strokeWeight(0.5);
@@ -169,7 +200,9 @@
                 currentPath.push(createVector(mouseX, mouseY));
                 drawRawPoints(currentPath);
             }
+        
         }
+        
         function drawRawPoints(path) {
             if (path.length === 0) return;
 
