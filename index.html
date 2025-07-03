@@ -34,17 +34,17 @@
                 // 创建 canvas 并将其放入容器中
                 const canvas = createCanvas(500, 500);
                 canvas.parent('canvas-container');
-                
+
                 textSize(10);
                 textAlign(LEFT, CENTER);
                 noFill();
                 strokeWeight(1);
-                
+
                 // 添加触摸事件监听
-                canvas.elt.addEventListener('touchmove', function(e) {
+                canvas.elt.addEventListener('touchmove', function (e) {
                     e.preventDefault();
                 }, { passive: false });
-                
+
                 document.addEventListener("touchmove", preventBehavior, {
                     passive: false
                 });
@@ -68,9 +68,9 @@
                 // decode hash
                 let hash = urlData && urlData.hash ? urlData.hash : '';
                 hash = hash
-                  .replace(/%3D/gi, '=')
-                  .replace(/%2F/gi, '/')
-                  .replace(/%2B/gi, '+');
+                    .replace(/%3D/gi, '=')
+                    .replace(/%2F/gi, '/')
+                    .replace(/%2B/gi, '+');
                 const data = {
                     type: 'newPath',
                     payload: hash
@@ -80,7 +80,7 @@
                     window.parent.postMessage(data, '*');
                 }
             }
-    
+
             // Listen for reset command from parent (with type and origin check)
             window.addEventListener('message', function (event) {
                 // Optionally: restrict allowed origins for security
@@ -113,12 +113,12 @@
                     }
                 }
             });
-    
+
             function draw() {
-                background(255);
+                background(240);
                 strokeWeight(1);
-    
-       
+
+
                 push();
                 stroke(200);
                 strokeWeight(0.5);
@@ -130,17 +130,17 @@
                     line(0, y, width, y);
                 }
                 pop();
-    
+
                 for (let i = 0; i < allPaths.length; i++) {
                     drawPathWithLabels(allPaths[i], i);
                 }
-    
+
                 // Draw stats box
                 push();
                 fill(0, 180); // 黑色，20%透明
                 stroke(0, 51);
                 rect(10, 10, 150, 50, 5); // 圆角矩形
-    
+
                 fill(255);
                 noStroke();
                 textAlign(LEFT, TOP);
@@ -149,13 +149,13 @@
                 text(`Points: ${singlePoints.length}`, 20, 40);
                 textSize(10); // 恢复默认字体大小
                 pop();
-    
+
                 for (let i = 0; i < singlePoints.length; i++) {
                     let pt = singlePoints[i];
                     noFill();
                     stroke(50)
                     ellipse(pt.x, pt.y, 12, 12);
-    
+
                     fill(0);
                     ellipse(pt.x, pt.y, 5, 5);
                     noStroke();
@@ -167,12 +167,21 @@
                     currentPath.push(createVector(mouseX, mouseY));
                     drawRawPoints(currentPath);
                 }
-            
+                stroke(50)
+                rect(0, 0, 500, 500);
+                push();
+                fill(50, 180);
+                noStroke();
+                textAlign(CENTER, BOTTOM);
+                textSize(10);
+                text('Hold the mouse to draw paths & click to add points', width / 2, height - 10);
+                pop();
+
             }
-            
+
             function drawRawPoints(path) {
                 if (path.length === 0) return;
-    
+
                 // 计算总距离
                 let totalDist = dist(path[0].x, path[0].y, mouseX, mouseY);
                 if (typeof totalDist === 'number' && totalDist > 0 && isFinite(totalDist)) {
@@ -180,16 +189,16 @@
                 }
                 // 防呆：若 animationPhase 為 NaN 或無限大，設為 0
                 if (isNaN(animationPhase) || !isFinite(animationPhase)) animationPhase = 0;
-    
+
                 // 计算当前动画点的位置，lerp 第三參數保證為有效數字
                 let currentX = lerp(path[0].x, mouseX, isNaN(animationPhase) ? 0 : animationPhase);
                 let currentY = lerp(path[0].y, mouseY, isNaN(animationPhase) ? 0 : animationPhase);
-    
+
                 // 检查终点是否接近其他点
                 let isNearOther = false;
                 let snapDistance = snapDistanceFactor; // 使用设备相应的检测距离
                 let maxScale = maxScaleFactor; // 使用设备相应的放大倍数
-    
+
                 // 检查所有独立点
                 for (let pt of singlePoints) {
                     let d = dist(mouseX, mouseY, pt.x, pt.y);
@@ -198,7 +207,7 @@
                         break;
                     }
                 }
-    
+
                 // 检查所有路径的端点
                 if (!isNearOther) {
                     for (let p of allPaths) {
@@ -214,24 +223,24 @@
                         }
                     }
                 }
-    
+
                 noFill();
                 stroke(50);
                 strokeWeight(1);
-    
+
                 // 绘制起点和终点的圆圈
                 ellipse(path[0].x, path[0].y, 12, 12);
-    
+
                 // 根据是否接近其他点来决定终点圆圈的大小
                 let circleSize = isNearOther ? 12 * maxScale : 12;
                 ellipse(mouseX, mouseY, circleSize, circleSize);
-    
+
                 fill(50);
                 noStroke();
                 ellipse(path[0].x, path[0].y, 5, 5);
                 let innerCircleSize = isNearOther ? 5 * maxScale : 5;
                 ellipse(mouseX, mouseY, innerCircleSize, innerCircleSize);
-    
+
                 if (mouseIsPressed) {
                     stroke(150);
                     noFill();
@@ -246,16 +255,16 @@
                         vertex(x, y);
                     }
                     endShape();
-    
+
                     push();
                     stroke(50);
                     strokeWeight(1);
                     // ellipse(currentX, currentY, 8, 8);
-    
+
                     let angle = atan2(mouseY - path[0].y, mouseX - path[0].x);
                     translate(currentX, currentY);
                     rotate(angle);
-    
+
                     fill(50);
                     noStroke();
                     let arrowSize = 8;
@@ -272,7 +281,7 @@
                     vertex(pt.x, pt.y);
                 }
                 endShape();
-    
+
                 // 绘制箭头
                 for (let i = 0; i < path.length - 1; i++) {
                     let pt = path[i];
@@ -281,7 +290,7 @@
                     let arrowSize = 8;
                     let midX = (pt.x + nextPt.x) / 2;
                     let midY = (pt.y + nextPt.y) / 2;
-    
+
                     push();
                     translate(midX, midY);
                     rotate(angle);
@@ -290,7 +299,7 @@
                     triangle(0, 0, -arrowSize, -arrowSize / 2, -arrowSize, arrowSize / 2);
                     pop();
                 }
-    
+
                 for (let i = 0; i < path.length; i++) {
                     let pt = path[i];
                     fill(0);
@@ -317,7 +326,7 @@
                             if (singlePoints.length > dotLimit) {
                                 singlePoints.shift();
                             }
-                        } 
+                        }
                     } else {
                         let minPoints = 2;
                         let dynamicMax = floor(map(totalLength, 20, 500, 4, 12));
@@ -404,7 +413,7 @@
                 let totalAngle = calculateTotalAngle(path);
                 return totalAngle < 20 && path.length >= 3;
             }
-    
+
             function generateSeed(len = 7) {
                 let seed = '';
                 seed = Math.floor(Math.random() * 99999999 + 1111111);
@@ -459,11 +468,11 @@
                     hashPart = hashPart.replace(/^#data_AAA(=|%3D)[^&]*&?/, '#');
                     // console.log("修正後 hashPart:", hashPart);
                     let baseUrl = "";
-    
+
                     const completeURL = baseUrl + hashPart;
                     const totalLength = completeURL.length;
                     const charCount = completeURL.split('').length;
-    
+
                     if (totalLength > 2000) {
                         // console.warn("⚠️ 這個網址太長了！有些瀏覽器可能會爆炸。");
                         offerAlternatives();
@@ -476,7 +485,7 @@
                         .replace(/%2F/gi, '/')
                         .replace(/%2B/gi, '+');
                     // console.log("🔗 請複製以下網址：\n" + decodedURL);
-                    return { url: completeURL, hash: hashPart, baseUrl};
+                    return { url: completeURL, hash: hashPart, baseUrl };
                 } catch (err) {
                     console.error(err);
                     return null;
@@ -620,16 +629,16 @@
                 currentPath = [];
                 return true; // 允許事件冒泡，讓下方按鈕可點擊
             }
-    
+
             function clearCanvas() {
                 currentPath = [];
                 allPaths = [];
                 singlePoints = [];
-    
+
                 window.lastGeneratedURL = '';
                 postPathUpdateDebounced();
             }
-      
+
             // 新增一個函式，專門處理開啟產生的網址
             function openGeneratedUrl(newResult) {
                 if (newResult && newResult.url) {
