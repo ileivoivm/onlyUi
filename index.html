@@ -118,6 +118,18 @@
                 background(240);
                 strokeWeight(1);
 
+                stroke(50)
+                noFill();
+                rect(0, 0, 500, 500);
+                push();
+                fill(50, 180);
+
+                push();
+                noStroke();
+                textAlign(CENTER, BOTTOM);
+                textSize(10);
+                text('Hold the mouse to draw paths & click to add points', width / 2, height - 10);
+                pop();
 
                 push();
                 stroke(200);
@@ -167,15 +179,7 @@
                     currentPath.push(createVector(mouseX, mouseY));
                     drawRawPoints(currentPath);
                 }
-                stroke(50)
-                rect(0, 0, 500, 500);
-                push();
-                fill(50, 180);
-                noStroke();
-                textAlign(CENTER, BOTTOM);
-                textSize(10);
-                text('Hold the mouse to draw paths & click to add points', width / 2, height - 10);
-                pop();
+          
 
             }
 
