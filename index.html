@@ -122,13 +122,20 @@
                 noFill();
                 rect(0, 0, 500, 500);
                 push();
-                fill(50, 180);
+                fill(50, 120);
 
                 push();
                 noStroke();
-                textAlign(CENTER, BOTTOM);
-                textSize(10);
-                text('Hold the mouse to draw paths & click to add points', width / 2, height - 10);
+                textAlign(LEFT, BOTTOM);
+                textSize(9);
+                let instructions = [
+                  '* Hold the mouse to draw paths',
+                  '* Click to add points',
+                  '* Press the spacebar to clear the canvas'
+                ];
+                for (let i = 0; i < instructions.length; i++) {
+                  text(instructions[i], 20, height - 50 + i * 18);
+                }
                 pop();
 
                 push();
@@ -638,9 +645,10 @@
                 currentPath = [];
                 allPaths = [];
                 singlePoints = [];
-
                 window.lastGeneratedURL = '';
-                postPathUpdateDebounced();
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'newPath', payload: '#data_empty' }, '*');
+                }
             }
 
             // 新增一個函式，專門處理開啟產生的網址
@@ -653,6 +661,14 @@
                     window.open(fixedUrl, '_blank');
                 }
             }
+        </script>
+        <script>
+        function keyPressed() {
+          if (key === ' ' || keyCode === 32) {
+            clearCanvas();
+            return false;
+          }
+        }
         </script>
     </div>
 
