@@ -5,7 +5,7 @@ html, body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    background: black;
+    background: rgb(255, 255, 255);
     display: flex;
     justify-content: center;
     align-items: center;
