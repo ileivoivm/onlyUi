@@ -75,7 +75,8 @@
                     type: 'newPath',
                     payload: hash
                 };
-                console.log('postMessage to Verse', data); // debug log
+                console.log(data.payload); // debug log
+                // console.log('postMessage to Verse', data); // debug log
                 if (window.parent && window.parent !== window) {
                     window.parent.postMessage(data, '*');
                 }

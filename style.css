@@ -25,5 +25,5 @@ html, body {
     width: 100% !important;  /* 强制覆盖可能的内联样式 */
     height: 100% !important; /* 强制覆盖可能的内联样式 */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1),0 -10px 30px rgba(0, 0, 0, 0.1);
-
+    transform:  scale(0.9);
   }
